@@ -16,7 +16,7 @@ dt = 0
 mixer.music.set_volume(0.7)
 
 #True for left to right false for right to left
-enemy_direction = True
+enemy_direction = False
 
 laser_interval = 250
 class player:
@@ -52,6 +52,7 @@ class player:
         screen.blit(self.player_img,(self.player_pos.x-self.player_img.get_width()/2,self.player_pos.y - self.player_img.get_height()/2))
 #
 
+#TODO FIX ENEMY UNALIGNMENT OVER TIME ISSUE
 class enemy:
     def __init__(self, origin):
         #images
@@ -63,16 +64,19 @@ class enemy:
         global enemy_direction
         if enemy_direction:
             self.enemy_pos.x += 100 * dt
-            print("dun")
         elif not enemy_direction:
-            print("switched")
             self.enemy_pos.x -= 100 * dt
-        if self.enemy_pos.x <= 0 or self.enemy_pos.x >= screen.get_width():
+        if self.enemy_pos.x < 0 or self.enemy_pos.x+self.enemy_image.get_width() > screen.get_width():
+            print(self.enemy_pos.x)
             print("evaluated")
             enemy_direction = not enemy_direction
 
+        #check edge collision
+        #clamp the x values to the edges of the screen
+        self.enemy_pos.x = max(min(screen.get_width(), self.enemy_pos.x), 0)
+
     def draw(self):
-        screen.blit (self.enemy_image, self.enemy_pos)
+        screen.blit (self.enemy_image,self.enemy_pos)
 #
 
 lasers = []
