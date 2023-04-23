@@ -12,11 +12,18 @@ clock = pygame.time.Clock()
 running = True
 dt = 0
 
+#LOAD IMAGES
+background_image = pygame.image.load("background.jpg")
+background_image = pygame.transform.smoothscale(background_image, screen.get_size())
+
+enemy_image1 = pygame.image.load("enemy.png")
+enemy_image1 = pygame.transform.scale(enemy_image1, (100, 100))
+enemy_images = [enemy_image1]
 
 mixer.music.set_volume(0.7)
+mixer.music.load("Automation.mp3")
+mixer.music.play(-1)
 
-#True for left to right false for right to left
-enemy_direction = False
 
 laser_interval = 250
 class player:
@@ -52,12 +59,13 @@ class player:
         screen.blit(self.player_img,(self.player_pos.x-self.player_img.get_width()/2,self.player_pos.y - self.player_img.get_height()/2))
 #
 
+#True for left to right false for right to left
+enemy_direction = False
 #TODO FIX ENEMY UNALIGNMENT OVER TIME ISSUE
 class enemy:
-    def __init__(self, origin):
+    def __init__(self, origin,img_source):
         #images
-        self.enemy_image = pygame.image.load("enemy.png")
-        self.enemy_image = pygame.transform.scale(self.enemy_image, (100, 100))
+        self.enemy_image = img_source
         self.origin = origin
         self.enemy_pos = pygame.Vector2(origin)
     def update(self):
@@ -76,8 +84,11 @@ class enemy:
         self.enemy_pos.x = max(min(screen.get_width(), self.enemy_pos.x), 0)
 
     def draw(self):
+        pygame.draw.circle(screen, "red", self.enemy_pos, 10)
         screen.blit (self.enemy_image,self.enemy_pos)
 #
+class enemy_swarm:
+    pass
 
 lasers = []
 laser_height = 50
@@ -121,7 +132,7 @@ def startup():
     for i in range (1,enemy_row_count+1):
         #divide screen width by the number of iteratiosn in the loop
         for f in range (1, enemy_columm_count+1):
-            enemies.append(enemy((((screen.get_width()-screen.get_width()/enemy_columm_count)/enemy_columm_count*(f))-(screen.get_width()/enemy_columm_count),i*row_size-row_size)))
+            enemies.append(enemy((((screen.get_width()-screen.get_width()/enemy_columm_count)/enemy_columm_count*(f))-(screen.get_width()/enemy_columm_count),i*row_size-row_size),enemy_images[0]))
 #
 def cleanup():
     pass
@@ -133,7 +144,8 @@ def gameloop():
 
 def render():
     # fill the screen with a color to wipe away anything from last frame
-    screen.fill("black")
+    # screen.fill("black")
+    screen.blit(background_image,(0,0))
 
     for i in enemies:
         i.update()
