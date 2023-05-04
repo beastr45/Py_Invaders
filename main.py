@@ -3,15 +3,17 @@
 import random
 import pygame
 from pygame import mixer
-
+from pygame import freetype
 
 #setup
 pygame.init()
-mixer.init()
+GAME_FONT = freetype.Font("assets/DarumadropOne-Regular.ttf", 24)
 screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 running = True
 dt = 0
+score = 0
+score_multiplier = 1
 
 #LOAD IMAGES
 background_image = pygame.image.load("assets/img/background.jpg")
@@ -27,7 +29,7 @@ mixer.music.load("assets/sound/Automation.mp3")
 mixer.music.play(-1)
 
 
-laser_interval = 250
+laser_interval = 500
 class new_player:
     def __init__(self,laser_interval):
         self.player_pos = pygame.Vector2(screen.get_width() / 2, (screen.get_height() / 2) +  (screen.get_height() / 3)*1.2)
@@ -44,9 +46,9 @@ class new_player:
         keys = pygame.key.get_pressed()
         # keys = pygame.key.()
         if keys[pygame.K_a]:
-            self.player_pos.x -= 400 * dt
+            self.player_pos.x -= 800 * dt
         if keys[pygame.K_d]:
-            self.player_pos.x += 400 * dt
+            self.player_pos.x += 800 * dt
 
         #set timer for lasers and make new laser object when space key is pressed
         if keys[pygame.K_SPACE] and self.laser_flag == False:
@@ -86,6 +88,9 @@ class new_enemy:
         # if self.enemy_pos.x < 0 or self.enemy_pos.x+self.enemy_image.get_width() > screen.get_width():
         #     enemy_direction = not enemy_direction
 
+        if random.randint(1,2000) == 5:
+            lasers.append(new_laser(self.enemy_pos, False))
+
         #check edge collision
         #clamp the x values to the edges of the screen
         self.enemy_pos.x = max(min(screen.get_width(), self.enemy_pos.x), 0)
@@ -94,10 +99,12 @@ class new_enemy:
 
     def draw(self):
         screen.blit (self.enemy_image,self.enemy_pos)
-        pygame.draw.rect(screen,"blue", self.enemy_hitbox, 10)
+        # pygame.draw.rect(screen,"blue", self.enemy_hitbox, 10)
     def __del__(self):
-        print("enemy object deleted")
-        print("explosion animation not yet added")
+        global score
+        global score_multiplier
+        score += 1 * score_multiplier
+        print("enemy deleted but explosion animation not yet added")
 #
 class new_enemy_swarm:
     def __init__(self,row_count,columm_count,swarm_image):
@@ -115,6 +122,9 @@ class new_enemy_swarm:
             for f in range (1, self.enemy_columm_count+1):
                 self.enemy_row_list.append(new_enemy((((screen.get_width()-screen.get_width()/self.enemy_columm_count)/self.enemy_columm_count*(f))-(screen.get_width()/self.enemy_columm_count),i*self.row_size-self.row_size),swarm_image))
             self.enemies.append(self.enemy_row_list)
+            self.enemy_row_list = []
+
+        #define hitbox size and location based on the elements inside of enemies list
         self.rect_size = (self.enemies[0][0].enemy_image.get_width(),self.enemies[0][0].enemy_image.get_height()*self.enemy_row_count)
         self.bounds = [pygame.Rect(self.enemies[0][0].enemy_pos.x,self.enemies[0][0].enemy_pos.y,self.rect_size[0],self.rect_size[1]),pygame.Rect(self.enemies[0][self.enemy_columm_count-1].enemy_pos.x,self.enemies[0][self.enemy_columm_count-1].enemy_pos.y,self.rect_size[0],self.rect_size[1])]
 
@@ -123,8 +133,8 @@ class new_enemy_swarm:
         for rows in self.enemies:
             for columm in rows:
                 for laser in lasers:
-                    if laser.laser_hitbox.colliderect(columms.enemy_hitbox) and laser.direction == True:
-                        self.enemies[rows].remove(columm)
+                    if laser.laser_hitbox.colliderect(columm.enemy_hitbox) and laser.direction == True:
+                        rows.remove(columm)
                         lasers.remove(laser)
     def update(self):
         #roll dice to make all enemies attack at the same time
@@ -135,7 +145,12 @@ class new_enemy_swarm:
         #update the hitboxes for the edges based on the list
         #TODO FIX HITBOXES BREAKING AFTER LIST IS CHANGED
         #perhaps use matrices to store enemies
-        self.bounds = [pygame.Rect(self.enemies[0][0].enemy_pos.x,self.enemies[0][0].enemy_pos.y,self.rect_size[0],self.rect_size[1]),pygame.Rect(self.enemies[0][self.enemy_columm_count-1].enemy_pos.x,self.enemies[0][self.enemy_columm_count-1].enemy_pos.y,self.rect_size[0],self.rect_size[1])]
+        for rows in self.enemies :
+            if rows == []:
+                self.enemies.remove(rows)
+        if self.enemies == []:
+            return(False)
+        self.bounds = [pygame.Rect(self.enemies[0][0].enemy_pos.x,self.enemies[0][0].enemy_pos.y,self.rect_size[0],self.rect_size[1]),pygame.Rect(self.enemies[0][-1].enemy_pos.x,self.enemies[0][-1].enemy_pos.y,self.rect_size[0],self.rect_size[1])]
         # self.bounds = [self.bounds[0].move(10*dt,0),self.bounds[1].move(10*dt,0)]
 
         #detect if the side hitboxes touch the wall and update evey enemy in the enemies list
@@ -152,6 +167,7 @@ class new_enemy_swarm:
         #run a for loop to check the hitboxes of enemies with lasers
         #enemies are deleted if they come in contact with laser
         self.check_laser_collisions()
+        return(True)
 
     #draw function - draws all enemies in the swarm
     def draw(self):
@@ -160,15 +176,16 @@ class new_enemy_swarm:
                 f.draw()
 
         #draws left and right hitboxes for the swarm
-        pygame.draw.rect(screen, "red",self.bounds[1],5)
-        pygame.draw.rect(screen, "red",self.bounds[0],5)
+        # pygame.draw.rect(screen, "red",self.bounds[1],5)
+        # pygame.draw.rect(screen, "red",self.bounds[0],5)
 #
 
 lasers = []
-laser_height = 50
-laser_width = 15
-laser_speed = 650
+laser_height = 30
+laser_width = 10
+laser_speed = 1000
 laser_sound = mixer.Sound("assets/sound/laser_sound.wav")
+laser_sound.set_volume(0.3)
 class new_laser:
     #origin = where to draw the laser
     #direction: boolean on which direction to go
@@ -208,8 +225,14 @@ def cleanup():
 #
 
 def gameloop():
+    global enemy_swarm
+    global score_multiplier
     player.update()
-    enemy_swarm.update()
+    if not enemy_swarm.update():
+        swarm_columms = random.randint(5,15)
+        swarm_rows = random.randint(2,4)
+        enemy_swarm = new_enemy_swarm(swarm_rows,swarm_columms,enemy_images[0])
+        score_multiplier *=2
 #
 
 def render():
@@ -225,8 +248,12 @@ def render():
     #draw player
     player.draw()
 
+    text_surface, txt_rect = GAME_FONT.render("Score = " + str(score), (225, 225, 225))
+    screen.blit(text_surface, (10, screen.get_height()-20))
+
     #draw enemies
     enemy_swarm.draw()
+
 
     # screen.blit(explosion_image,(0,0))
 
