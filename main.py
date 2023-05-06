@@ -14,6 +14,8 @@ running = True
 dt = 0
 score = 0
 score_multiplier = 1
+lives = 3
+score_bool = True
 
 #LOAD IMAGES
 background_image = pygame.image.load("assets/img/background.jpg")
@@ -28,22 +30,43 @@ mixer.music.set_volume(0.7)
 mixer.music.load("assets/sound/Automation.mp3")
 mixer.music.play(-1)
 
+def new_button(Picture, coords, surface):
+    image = pygame.image.load(Picture)
+    image = pygame.transform.scale_by(image,.30)
+    imagerect = image.get_rect()
+    imagerect.topright = coords
+    surface.blit(image,imagerect)
+    return (image,imagerect)
 
 laser_interval = 500
 class new_player:
     def __init__(self,laser_interval):
         self.player_pos = pygame.Vector2(screen.get_width() / 2, (screen.get_height() / 2) +  (screen.get_height() / 3)*1.2)
         self.player_img = pygame.image.load("assets/img/player.png")
-        self.player_img = pygame.transform.scale(self.player_img, (150, 150))
+        self.player_img = pygame.transform.scale(self.player_img, (100, 100))
         self.laser_interval = laser_interval
 
+        self.player_hitbox = pygame.Rect(self.player_pos.x-self.player_img.get_width()/2,self.player_pos.y - self.player_img.get_height()/2, self.player_img.get_width(), self.player_img.get_height())
         self.laser_flag = False
 
     #powerups may perhaps be able to change firing speed
     def change_interval(self, interval):
         self.laser_interval = interval
+
+    def check_player_collisions(self):
+        global player
+        global lives
+        for laser in lasers:
+            if laser.laser_hitbox.colliderect(self.player_hitbox) and laser.direction == False:
+                startup()
+                lives -= 1
+    
     def update(self):
+        global enemy_swarm
+        self.player_hitbox = pygame.Rect(self.player_pos.x-self.player_img.get_width()/2,self.player_pos.y - self.player_img.get_height()/2, self.player_img.get_width(), self.player_img.get_height())
         keys = pygame.key.get_pressed()
+        
+        self.check_player_collisions()
         # keys = pygame.key.()
         if keys[pygame.K_a]:
             self.player_pos.x -= 800 * dt
@@ -61,10 +84,15 @@ class new_player:
 
         #check edge collision
         #clamp the x values to the edges of the screen
-        self.player_pos.x = max(min(screen.get_width(), self.player_pos.x), 0)
+        if not enemy_swarm.enemies[0]:
+            return
+        self.player_pos.x = max(min(screen.get_width()-enemy_swarm.enemies[0][0].enemy_image.get_width(), self.player_pos.x), 0+enemy_swarm.enemies[0][0].enemy_image.get_width())
     def draw(self):
         #draw player
         screen.blit(self.player_img,(self.player_pos.x-self.player_img.get_width()/2,self.player_pos.y - self.player_img.get_height()/2))
+        # pygame.draw.rect(screen,"white",self.player_hitbox,10)
+    def __del__(self):
+        pass
 #
 
 #self.direction True for left to right false for right to left
@@ -88,7 +116,7 @@ class new_enemy:
         # if self.enemy_pos.x < 0 or self.enemy_pos.x+self.enemy_image.get_width() > screen.get_width():
         #     enemy_direction = not enemy_direction
 
-        if random.randint(1,2000) == 5:
+        if random.randint(1,500) == 5:
             lasers.append(new_laser(self.enemy_pos, False))
 
         #check edge collision
@@ -103,8 +131,10 @@ class new_enemy:
     def __del__(self):
         global score
         global score_multiplier
-        score += 1 * score_multiplier
-        print("enemy deleted but explosion animation not yet added")
+        global score_bool
+        if score_bool:
+            score += 1 * score_multiplier
+            print("enemy deleted but explosion animation not yet added")
 #
 class new_enemy_swarm:
     def __init__(self,row_count,columm_count,swarm_image):
@@ -137,14 +167,7 @@ class new_enemy_swarm:
                         rows.remove(columm)
                         lasers.remove(laser)
     def update(self):
-        #roll dice to make all enemies attack at the same time
-        # if random.randint(1,100) == 5:
-        #     for i in self.enemies:
-        #         lasers.append(new_laser(i.enemy_pos, False))
-
         #update the hitboxes for the edges based on the list
-        #TODO FIX HITBOXES BREAKING AFTER LIST IS CHANGED
-        #perhaps use matrices to store enemies
         for rows in self.enemies :
             if rows == []:
                 self.enemies.remove(rows)
@@ -180,7 +203,6 @@ class new_enemy_swarm:
         # pygame.draw.rect(screen, "red",self.bounds[0],5)
 #
 
-lasers = []
 laser_height = 30
 laser_width = 10
 laser_speed = 1000
@@ -214,11 +236,22 @@ def handle_lasers():
             lasers.remove(i)
 #
 
+#
+
 def startup():
     global player
     global enemy_swarm
+    global lasers
+    global restart_button
+    global score_bool
+    score_bool = False
+    restart_button = new_button("assets/img/retry_button.png",(screen.get_width(),screen.get_height()),screen)
     player = new_player(laser_interval)
+    lasers = []
     enemy_swarm = new_enemy_swarm(2,10,enemy_images[0])
+    score_bool = True
+    # while True:
+    #     print("waiting")
 #
 def cleanup():
     pass
@@ -228,13 +261,12 @@ def gameloop():
     global enemy_swarm
     global score_multiplier
     player.update()
+    #make a new swarm at 0 enemies remaining
     if not enemy_swarm.update():
         swarm_columms = random.randint(5,15)
         swarm_rows = random.randint(2,4)
         enemy_swarm = new_enemy_swarm(swarm_rows,swarm_columms,enemy_images[0])
         score_multiplier *=2
-#
-
 def render():
     # fill the screen with a color to wipe away anything from last frame
     # screen.fill("black")
@@ -249,7 +281,9 @@ def render():
     player.draw()
 
     text_surface, txt_rect = GAME_FONT.render("Score = " + str(score), (225, 225, 225))
+    lives_surface, txt_rect = GAME_FONT.render("Lives = " + str(lives), (225,225,225))
     screen.blit(text_surface, (10, screen.get_height()-20))
+    screen.blit(lives_surface, (screen.get_width()-100, screen.get_height()-20))
 
     #draw enemies
     enemy_swarm.draw()
@@ -261,10 +295,23 @@ def render():
     pygame.display.flip()
 #
 
+def death_screen():
+    #logic
+    #draw
+    global restart_button
+    screen.blit(background_image,(0,0))
 
 
 
+    score_txt, txt_rect = GAME_FONT.render("Your score was: " + str(score), (225,225,225))
+    gameover_txt, txt_rect = GAME_FONT.render("Would you like to play again?", (225,225,225))
+    screen.blit(score_txt, (screen.get_width()/2-gameover_txt.get_width()/2, (screen.get_height()/2-gameover_txt.get_height()/2) +20))
+    screen.blit(gameover_txt, (screen.get_width()/2-gameover_txt.get_width()/2, screen.get_height()/2-gameover_txt.get_height()/2))
+    restart_button = new_button("assets/img/retry_button.png",(screen.get_width()/2+gameover_txt.get_width()/4,screen.get_height()/2+50),screen)
 
+    # draw everything to the screen
+    pygame.display.flip()
+#
 
 
 
@@ -274,12 +321,24 @@ while running:
     # poll for events
     # pygame.QUIT event means the user clicked X to close your window
     for event in pygame.event.get():
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            mouse = pygame.mouse.get_pos()
+            if restart_button[1].collidepoint(mouse):
+                startup()
+                score = 0
+                lives =3
+        #code if button is pressed goes here
+
         if event.type == pygame.QUIT:
             running = False
 #
 
-    gameloop()
-    render()
+    if lives > 0:
+        gameloop()
+        render()
+    else:
+        death_screen()
+
     dt = clock.tick(60) / 1000
 #
 cleanup()
