@@ -1,10 +1,11 @@
-#Made in 2023 by Bear BlinSchauer
+#Made 2023 by Bear BlinSchauer
 #see license for more info
+#dont judge my code lol
 import random
 import pygame
+# from animation_logic import SpriteStripAnim
 from pygame import mixer
 from pygame import freetype
-
 #setup
 pygame.init()
 GAME_FONT = freetype.Font("assets/DarumadropOne-Regular.ttf", 24)
@@ -25,6 +26,7 @@ background_image = pygame.transform.smoothscale(background_image, screen.get_siz
 enemy_image1 = pygame.image.load("assets/img/enemy.png")
 enemy_image1 = pygame.transform.scale(enemy_image1, (100, 100))
 enemy_images = [enemy_image1]
+
 
 mixer.music.set_volume(0.7)
 mixer.music.load("assets/sound/Automation.mp3")
